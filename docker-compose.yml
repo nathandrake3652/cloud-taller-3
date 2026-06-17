@@ -1,0 +1,61 @@
+services:
+  localstack:
+    image: localstack/localstack:2.3.2
+    environment:
+      - SERVICES=s3
+      - DEBUG=1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+    ports:
+      - "4566:4566"
+
+  terraform:
+    image: hashicorp/terraform:light
+    working_dir: /workspace
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - ./infra/terraform:/workspace
+    depends_on:
+      - localstack
+
+  awsclic:
+    image: amazon/aws-cli:latest
+    working_dir: /workspace
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - ./infra/terraform:/workspace
+    depends_on:
+      - localstack
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      - PORT=3001
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - S3_ENDPOINT_URL=http://localstack:4566
+      - S3_BUCKET_NAME=taller3-bucket
+      - S3_FORCE_PATH_STYLE=true
+    ports:
+      - "3001:3001"
+    depends_on:
+      - localstack
+
+  frontend:
+    build:
+      context: ./frontend
+    environment:
+      - VITE_API_URL=http://localhost:3001
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
